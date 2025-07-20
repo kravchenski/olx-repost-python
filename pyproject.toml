@@ -1,0 +1,9 @@
+[project]
+name = "olx-repost-python"
+version = "0.1.0"
+description = "A tool that scrapes OLX listings, extracts images and information, and reposts them to another account."
+readme = "README.md"
+requires-python = ">=3.7, <=3.13.3"
+dependencies = [
+    "drissionpage>=4.1.0.18",
+]
