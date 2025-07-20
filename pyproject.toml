@@ -6,4 +6,5 @@ readme = "README.md"
 requires-python = ">=3.7, <=3.13.3"
 dependencies = [
     "drissionpage>=4.1.0.18",
+    "python-dotenv>=0.21.1",
 ]
