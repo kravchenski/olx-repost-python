@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 
 from config import page
 
@@ -16,7 +17,9 @@ def get_ads_info():
 
         data = json.loads(decoded_str)
         if data['operationName'] == 'Inventory':
-            with open('ads_info.json', 'w', encoding='utf-8') as f:
+            os.makedirs('account_ads_data', exist_ok=True)
+            with open('account_ads_data/ads_info.json', 'w', encoding='utf-8') as f:
                 f.write(json.dumps(pkt.response.body, ensure_ascii=False, indent=2))
+
             break
     page.listen.stop()
