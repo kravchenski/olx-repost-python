@@ -1,25 +1,29 @@
-import base64
-import json
 import os
 
 from config import page
+from utils import network_listen_and_write_data_to_json
 
 
-def get_ads_info():
-    page.listen.start('https://production-graphql.eu-sharedservices.olxcdn.com/graphql')
-    while True:
-        pkt = page.listen.wait(timeout=20)
+def save_ad_info():
+    page.listen.start('https://www.olx.pl/api/v1/offers/metadata/filters/')
 
-        post_data = pkt.request.postDataEntries
-        b64_bytes = post_data[0]['bytes']
-        decoded_bytes = base64.b64decode(b64_bytes)
-        decoded_str = decoded_bytes.decode('utf-8')
+    # Check if the button to accept driver
+    if page.ele('xpath://div[@class="css-9vacbn"]/button[@data-button-variant="tertiary"and @type="button"]'):
+        page.ele('xpath://div[@class="css-9vacbn"]/button[@data-button-variant="tertiary"and @type="button"]').click()
 
-        data = json.loads(decoded_str)
-        if data['operationName'] == 'Inventory':
-            os.makedirs('account_ads_data', exist_ok=True)
-            with open('account_ads_data/ads_info.json', 'w', encoding='utf-8') as f:
-                f.write(json.dumps(pkt.response.body, ensure_ascii=False, indent=2))
+    page.scroll.down(400)
 
-            break
-    page.listen.stop()
+    # Click to edit ad btn link
+    page.ele('xpath://a[@data-testid="edit-ad-btn"]').click()
+
+    os.makedirs('account_ads_data', exist_ok=True)
+    network_listen_and_write_data_to_json('https://www.olx.pl/api/v1/offers/', 'ad_info')
+    network_listen_and_write_data_to_json('https://pl.ps.prd.eu.olx.org/settings/v2/opt-in', 'ad_delivery')
+    page.refresh(ignore_cache=True)
+    network_listen_and_write_data_to_json(
+        f'https://posting-services.prd.01.eu-west-1.eu.olx.org/v2/categories?categoryID',
+        'categories')
+    page.refresh(ignore_cache=True)
+    network_listen_and_write_data_to_json(
+        f'https://pl.ps.prd.eu.olx.org/listing/v1/opt-in/',
+        'approvedParcelOptions')
