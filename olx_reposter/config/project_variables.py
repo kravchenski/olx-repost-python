@@ -1,5 +1,11 @@
+import json
+import os
+
 from DrissionPage import ChromiumPage
 from DrissionPage import ChromiumOptions
+
+emails = json.loads(os.getenv('EMAIL_CONFIG_JSON'))['emails']
+password = os.getenv('EMAIL_PASSWORD')
 
 
 def create_page():
