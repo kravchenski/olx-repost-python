@@ -5,6 +5,7 @@ description = "A tool that scrapes OLX listings, extracts images and information
 readme = "README.md"
 requires-python = ">=3.7, <=3.13.3"
 dependencies = [
+    "asyncpg>=0.28.0",
     "drissionpage>=4.1.0.18",
     "python-dotenv>=0.21.1",
 ]
