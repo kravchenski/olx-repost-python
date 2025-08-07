@@ -1,3 +1,5 @@
+import asyncio
+
 from olx_reposter import DatabaseModel, OlxAdReposter
 from olx_reposter.config.project_variables import emails, password
 
@@ -13,3 +15,7 @@ async def main():
                                                             emails[single_data['account_to'] - 1], password)
         else:
             continue
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
