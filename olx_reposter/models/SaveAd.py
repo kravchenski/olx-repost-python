@@ -2,7 +2,8 @@ import os
 import json
 import re
 
-from ..config import page
+import DrissionPage
+
 from ..utils.network_listener import capture_network_response_to_file
 from ..utils.image_downloader import download_images_to_directory
 from ..utils.options_loader import load_approved_parcel_options
@@ -12,7 +13,7 @@ from ..utils.category_converter import convert_keys_to_labels_and_save
 class AdDataExtractor:
 
     @classmethod
-    def extract_and_save_ad_data(cls):
+    def extract_and_save_ad_data(cls, page: DrissionPage.ChromiumPage, ad_id: int):
         page.listen.start('https://www.olx.pl/api/v1/offers/metadata/filters/')
 
         if page.ele('xpath://div[@class="css-9vacbn"]/button[@data-button-variant="tertiary"and @type="button"]'):
@@ -20,26 +21,27 @@ class AdDataExtractor:
                 'xpath://div[@class="css-9vacbn"]/button[@data-button-variant="tertiary"and @type="button"]').click()
 
         page.scroll.down(400)
-        page.ele('xpath://a[@data-testid="edit-ad-btn"]').click()
+        if ad_id is not None:
+            page.ele(f'xpath://a[@data-testid="edit-ad-btn"]/@href[contains(., "{ad_id}")]').click()
 
         os.makedirs('account_ads_data', exist_ok=True)
 
-        cls.__capture_ad_network_data()
+        cls.__capture_ad_network_data(page)
         cls.__build_ad_json_structure()
         cls.__add_shipping_options()
 
     @staticmethod
-    def __capture_ad_network_data():
-        capture_network_response_to_file('https://www.olx.pl/api/v1/offers/', 'ad_info')
-        capture_network_response_to_file('https://pl.ps.prd.eu.olx.org/settings/v2/opt-in', 'ad_delivery')
+    def __capture_ad_network_data(page):
+        capture_network_response_to_file(page, 'https://www.olx.pl/api/v1/offers/', 'ad_info')
+        capture_network_response_to_file(page, 'https://pl.ps.prd.eu.olx.org/settings/v2/opt-in', 'ad_delivery')
         page.refresh(ignore_cache=True)
-        capture_network_response_to_file(
-            f'https://posting-services.prd.01.eu-west-1.eu.olx.org/v2/categories?categoryID',
-            'categories')
+        capture_network_response_to_file(page,
+                                         f'https://posting-services.prd.01.eu-west-1.eu.olx.org/v2/categories?categoryID',
+                                         'categories')
         page.refresh(ignore_cache=True)
-        capture_network_response_to_file(
-            f'https://pl.ps.prd.eu.olx.org/listing/v1/opt-in/',
-            'approvedParcelOptions')
+        capture_network_response_to_file(page,
+                                         f'https://pl.ps.prd.eu.olx.org/listing/v1/opt-in/',
+                                         'approvedParcelOptions')
 
     @staticmethod
     def __build_ad_json_structure():
@@ -68,16 +70,15 @@ class AdDataExtractor:
     def __add_shipping_options():
         with open('account_ads_data/ad_delivery.json', 'r', encoding='utf-8') as file:
             delivery_data = json.load(file)
-
         approved_options = load_approved_parcel_options()
         shipping_options = []
-
-        for parcel_option in delivery_data['data']['shipping'][1]['parcelOptions']:
-            if str(parcel_option['id']) in approved_options:
-                shipping_options.append({
-                    "type": parcel_option['label'],
-                    "id": parcel_option['id']
-                })
+        for i in range(len(delivery_data['data']['shipping'])):
+            for parcel_option in delivery_data['data']['shipping'][i]['parcelOptions']:
+                if str(parcel_option['id']) in approved_options:
+                    shipping_options.append({
+                        "type": parcel_option['label'],
+                        "id": parcel_option['id']
+                    })
 
         with open('account_ads_data/data_to_another_account.json', 'r+', encoding='utf-8') as file:
             data = json.load(file)

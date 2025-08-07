@@ -4,97 +4,102 @@ import time
 
 import DrissionPage.errors
 
-from ..config import page
+from ..config.project_variables import create_page
 from ..errors import OlxTimeoutError, OlxAccountError, OlxPageError
 from ..models.SaveAd import AdDataExtractor
+from ..models.DBModel import DatabaseModel
 from ..utils.data_loader import load_account_data
+from ..utils.network_listener_for_db import capture_network_response
 
 
 class OlxAdReposter:
-    _auth_call_count = 0
+    def __init__(self):
+        self.page = create_page()
 
-    @classmethod
-    def transfer_ad_between_accounts(cls, source_email: str, source_password: str,
-                                     target_email: str, target_password: str):
+    async def write_to_db(self, index, source_email: str, source_password: str):
+        self._authenticate_user(source_email, source_password)
+        data = capture_network_response(self.page, 'https://production-graphql.eu-sharedservices.olxcdn.com/graphql')
+        await DatabaseModel.store_ad(index, data)
+        self.page.close()
+
+    async def transfer_ad_between_accounts(self, ad_id: int, source_email: str, source_password: str,
+                                           target_email: str, target_password: str):
         try:
-            cls._authenticate_user(source_email, source_password)
-            AdDataExtractor.extract_and_save_ad_data()
-            cls._authenticate_user(target_email, target_password)
-            cls._publish_saved_ad()
+            ad_id_in_db = await DatabaseModel.check_ad_in_db(ad_id)
+
+            self._authenticate_user(source_email, source_password)
+            AdDataExtractor.extract_and_save_ad_data(self.page, ad_id_in_db)
+            self._authenticate_user(target_email, target_password, True)
+            self._publish_saved_ad()
+            await DatabaseModel.update_is_transferred_field_in_transfer_db(ad_id)
         except DrissionPage.errors.PageDisconnectedError:
             raise OlxPageError("The page either did not load or was closed. Please try again.")
         except DrissionPage.errors.WaitTimeoutError:
             raise OlxTimeoutError("The element was not found within the timeout period.")
 
-    @staticmethod
-    def _authenticate_user(email: str, password: str):
-        OlxAdReposter._auth_call_count += 1
-        page.clear_cache()
-        page.get('https://www.olx.pl/')
-        page.wait.doc_loaded()
-
-        if page.ele('xpath://*[@id="onetrust-accept-btn-handler"]'):
-            page.ele('xpath://*[@id="onetrust-accept-btn-handler"]').click()
-        if OlxAdReposter._auth_call_count == 2:
-            page.ele('xpath://a[@data-testid="post-new-ad-button"]').click()
+    def _authenticate_user(self, email: str, password: str, is_second_account: bool = False):
+        self.page.clear_cache()
+        self.page.get('https://www.olx.pl/')
+        self.page.wait.eles_loaded('xpath://a[@data-testid="myolx-link"]')
+        if self.page.ele('xpath://*[@id="onetrust-accept-btn-handler"]'):
+            self.page.ele('xpath://*[@id="onetrust-accept-btn-handler"]').click()
+        if is_second_account:
+            self.page.ele('xpath://a[@data-testid="post-new-ad-button"]').click()
         else:
-            page.ele('xpath://a[@data-testid="myolx-link"]').click()
+            self.page.ele('xpath://a[@data-testid="myolx-link"]').click()
 
-        page.ele('xpath://*[@id="username"]').input(email)
-        page.ele('xpath://*[@id="password"]').input(password)
-        page.ele('xpath://*[@id="Login"]').click()
+        self.page.ele('xpath://*[@id="username"]').input(email)
+        self.page.ele('xpath://*[@id="password"]').input(password)
+        self.page.ele('xpath://*[@id="Login"]').click()
 
-    @staticmethod
-    def _publish_saved_ad():
+    def _publish_saved_ad(self):
         data = load_account_data()
-        page.wait.doc_loaded(timeout=30)
 
-        page.ele('xpath://*[@id="title"]', timeout=20).input(data['title'])
-        page.ele('xpath://button[@class="css-7svm16"]/span[text()="Zmień"]').click()
-        page.ele('xpath://input[@placeholder="Szukaj"]').input(data['category_label'])
-        page.ele(f'xpath://div[@class="css-1msmb8o"]/button/span/p[text()="{data["category_label"]}"]').click()
+        self.page.ele('xpath://*[@id="title"]', timeout=20).input(data['title'])
+        self.page.ele('xpath://button[@class="css-7svm16"]/span[text()="Zmień"]').click()
+        self.page.ele('xpath://input[@placeholder="Szukaj"]').input(data['category_label'])
+        self.page.ele(f'xpath://div[@class="css-1msmb8o"]/button/span/p[text()="{data["category_label"]}"]').click()
         for index, image_path in enumerate(data['images']):
-            page.ele(f'xpath://*[@id="{index}"]').input(image_path)
+            self.page.ele(f'xpath://*[@id="{index}"]').input(image_path)
 
-        page.ele('xpath://*[@id="parameters.price.price"]').input(data['price'])
-        page.scroll.down(800)
-
-        page.wait.eles_loaded(
+        self.page.ele('xpath://*[@id="parameters.price.price"]').input(data['price'])
+        self.page.scroll.down(800)
+        time.sleep(10)
+        self.page.wait.eles_loaded(
             locators='xpath://input[@class="n-textinput-input" and @placeholder="Wybierz"]',
             timeout=30)
-
         for index, param in enumerate(data['params']):
-            page.eles(
+            self.page.eles(
                 f"xpath://input[@class='n-textinput-input' and @placeholder='Wybierz']",
                 timeout=30)[index].click()
-            page.ele(f'xpath://a[text()="{param}"]').click()
+            self.page.ele(f'xpath://a[text()="{param}"]').click()
             time.sleep(2)
-
-        page.scroll.down(800)
-        page.ele('xpath://*[@id="description"]').clear().input(data['description'])
+        time.sleep(5)
+        self.page.scroll.down(800)
+        self.page.ele('xpath://*[@id="description"]').clear().input(data['description'])
 
         for shipping_option in data['shipping']:
-            page.ele(f'xpath://p[text()="{shipping_option["type"]}"]').click()
-            page.ele(f'xpath://input[@data-testid="checkbox-{shipping_option["id"]}"]').click()
+            self.page.ele(f'xpath://p[text()="{shipping_option["type"]}"]').click()
+            self.page.ele(f'xpath://input[@data-testid="checkbox-{shipping_option["id"]}"]').click()
 
-        page.scroll.down(1100)
+        self.page.scroll.down(1100)
 
-        if page.ele('xpath://*[@id="firstName"]'):
-            page.ele('xpath://*[@id="firstName"]').input(os.getenv('FIRST_NAME'))
-            page.ele('xpath://*[@id="lastName"]').input(os.getenv('LAST_NAME'))
-            page.ele('xpath://*[@id="consent"]').click()
+        if self.page.ele('xpath://*[@id="firstName"]', timeout=5):
+            self.page.ele('xpath://*[@id="firstName"]').input(os.getenv('FIRST_NAME'))
+            self.page.ele('xpath://*[@id="lastName"]').input(os.getenv('LAST_NAME'))
+            self.page.ele('xpath://*[@id="consent"]').click()
+        self.page.scroll.to_bottom()
 
-        page.ele('xpath://input[@name="city_id"]').input(data['location'])
-        page.scroll.to_bottom()
+        self.page.ele('xpath://input[@name="city_id"]').input(data['location'])
 
-        page.ele('xpath://button[@data-testid="submit-btn"]').click()
+        self.page.ele('xpath://button[@data-testid="submit-btn"]').click()
         try:
-            if page.ele('xpath://button[@data-cy="purchase-dont-promote"]'):
-                page.ele('xpath://button[@data-cy="purchase-dont-promote"]').click()
-                page.ele('xpath://div[@class="css-1buxhyn"]//button[@data-button-variant="primary"]').click()
+            if self.page.ele('xpath://button[@data-cy="purchase-dont-promote"]'):
+                self.page.ele('xpath://button[@data-cy="purchase-dont-promote"]').click()
+                self.page.ele('xpath://div[@class="css-1buxhyn"]//button[@data-button-variant="primary"]').click()
             else:
                 raise OlxAccountError("The trial period for this account has ended. Please create a new one.")
 
         finally:
             shutil.rmtree('account_ads_data', ignore_errors=True)
-            page.close()
+            self.page.close()

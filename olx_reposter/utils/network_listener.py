@@ -1,9 +1,7 @@
 import json
 
-from olx_reposter.config import page
 
-
-def capture_network_response_to_file(url, filename):
+def capture_network_response_to_file(page, url, filename):
     page.listen.start(url)
     packet = page.listen.wait(timeout=30, fit_count=2)
 
