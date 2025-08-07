@@ -36,7 +36,7 @@ A powerful Python tool that **automates the scraping and reposting of OLX ads** 
 
    ```bash
    pip install uv
-   uv venv
+   python -m uv venv
    ```
 
 3. **Set up environment variables**
@@ -67,8 +67,8 @@ A powerful Python tool that **automates the scraping and reposting of OLX ads** 
 ### Run main scripts:
 
 ```bash
-uv run main_collect_ads.py
-uv run main_transfer_to_acc.py
+python -m uv run main_collect_ads.py
+python -m  uv run main_transfer_to_acc.py
 ```
 
 ### Example use cases:
