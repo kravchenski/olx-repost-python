@@ -6,10 +6,10 @@ from olx_reposter import OlxAdReposter
 olx_reposter = OlxAdReposter()
 
 
-async def main():
+async def main_pg():
     for index, email in enumerate(emails):
-        await olx_reposter.write_to_db(index + 1, email, password)
+        await olx_reposter.write_to_db(index + 1, email, password, "postgres")
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(main_pg())
