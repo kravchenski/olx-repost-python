@@ -5,7 +5,7 @@ import asyncpg
 from ..config import pg_user, pg_password, pg_database, pg_host
 
 
-class DatabaseModel:
+class PostgresDatabaseModel:
     @staticmethod
     async def store_ad(index, data):
         for ad in data:
