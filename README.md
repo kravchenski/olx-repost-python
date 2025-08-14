@@ -39,8 +39,8 @@ A powerful Python tool that **automates the scraping and reposting of OLX ads** 
    python -m uv venv
    ```
 
-3. **Set up environment variables**
-   Create a `.env` file in the project root:
+3. **Set up environment variables**<br>
+   If you're using POSTGRES:
 
    ```ini
    EMAIL_CONFIG_JSON='{
@@ -59,6 +59,25 @@ A powerful Python tool that **automates the scraping and reposting of OLX ads** 
    POSTGRES_PASSWORD = root
    POSTGRES_DATABASE = olx_db
    ```
+      If you're using MYSQL:
+
+   ```ini
+   EMAIL_CONFIG_JSON='{
+     "emails": [
+         "test@weq.com",
+         "test1@cvb.uio"
+     ]
+   }'
+   EMAIL_PASSWORD = yourpass
+   FIRST_NAME = Nowak
+   LAST_NAME = Kowalski
+   
+   
+   MYSQL_HOST = localhost
+   MYSQL_USER = mysql
+   MYSQL_PASSWORD = root
+   MYSQL_DATABASE = olx_db
+   ```
 
 ---
 
@@ -66,9 +85,16 @@ A powerful Python tool that **automates the scraping and reposting of OLX ads** 
 
 ### Run main scripts:
 
+#### POSTGRES
 ```bash
-python -m uv run main_collect_ads.py
-python -m  uv run main_transfer_to_acc.py
+python -m uv run collect_ads_pg.py
+python -m  uv run transfer_to_acc_pg.py
+```
+#### MYSQL
+```bash
+python -m uv run collect_ads_mysql.py
+python -m  uv run transfer_to_acc_mysql.py
+
 ```
 
 ### Example use cases:
