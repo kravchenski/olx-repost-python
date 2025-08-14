@@ -4,10 +4,11 @@ import time
 
 import DrissionPage.errors
 
+from .MySqlDBModel import MySQLDatabaseModel
 from ..config.project_variables import create_page
 from ..errors import OlxTimeoutError, OlxAccountError, OlxPageError
 from ..models.SaveAd import AdDataExtractor
-from ..models.DBModel import DatabaseModel
+from ..models.PostgresDBModel import PostgresDatabaseModel
 from ..utils.data_loader import load_account_data
 from ..utils.network_listener_for_db import capture_network_response
 
@@ -16,22 +17,28 @@ class OlxAdReposter:
     def __init__(self):
         self.page = create_page()
 
-    async def write_to_db(self, index, source_email: str, source_password: str):
+    async def write_to_db(self, index, source_email: str, source_password: str, database: str):
         self._authenticate_user(source_email, source_password)
         data = capture_network_response(self.page, 'https://production-graphql.eu-sharedservices.olxcdn.com/graphql')
-        await DatabaseModel.store_ad(index, data)
+        if database == 'postgres':
+            await PostgresDatabaseModel.store_ad(index, data)
+        else:
+            await MySQLDatabaseModel.store_ad(index, data)
         self.page.close()
 
     async def transfer_ad_between_accounts(self, ad_id: int, source_email: str, source_password: str,
-                                           target_email: str, target_password: str):
+                                           target_email: str, target_password: str, database: str):
         try:
-            ad_id_in_db = await DatabaseModel.check_ad_in_db(ad_id)
+            ad_id_in_db = await PostgresDatabaseModel.check_ad_in_db(ad_id)
 
             self._authenticate_user(source_email, source_password)
             AdDataExtractor.extract_and_save_ad_data(self.page, ad_id_in_db)
             self._authenticate_user(target_email, target_password, True)
             self._publish_saved_ad()
-            await DatabaseModel.update_is_transferred_field_in_transfer_db(ad_id)
+            if database == 'postgres':
+                await PostgresDatabaseModel.update_is_transferred_field_in_transfer_db(ad_id)
+            else:
+                await MySQLDatabaseModel.update_is_transferred_field_in_transfer_db(ad_id)
         except DrissionPage.errors.PageDisconnectedError:
             raise OlxPageError("The page either did not load or was closed. Please try again.")
         except DrissionPage.errors.WaitTimeoutError:
