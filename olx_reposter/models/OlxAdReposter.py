@@ -24,13 +24,14 @@ class OlxAdReposter:
             await PostgresDatabaseModel.store_ad(index, data)
         else:
             await MySQLDatabaseModel.store_ad(index, data)
-        self.page.close()
 
     async def transfer_ad_between_accounts(self, ad_id: int, source_email: str, source_password: str,
                                            target_email: str, target_password: str, database: str):
         try:
-            ad_id_in_db = await PostgresDatabaseModel.check_ad_in_db(ad_id)
-
+            if database == 'postgres':
+                ad_id_in_db = await PostgresDatabaseModel.check_ad_in_db(ad_id)
+            else:
+                ad_id_in_db = await MySQLDatabaseModel.check_ad_in_db(ad_id)
             self._authenticate_user(source_email, source_password)
             AdDataExtractor.extract_and_save_ad_data(self.page, ad_id_in_db)
             self._authenticate_user(target_email, target_password, True)
@@ -51,9 +52,9 @@ class OlxAdReposter:
         if self.page.ele('xpath://*[@id="onetrust-accept-btn-handler"]'):
             self.page.ele('xpath://*[@id="onetrust-accept-btn-handler"]').click()
         if is_second_account:
-            self.page.ele('xpath://a[@data-testid="post-new-ad-button"]').click()
+            self.page.get('https://www.olx.pl/adding/')
         else:
-            self.page.ele('xpath://a[@data-testid="myolx-link"]').click()
+            self.page.get('http://www.olx.pl/konto/?ref[0][params][url]=http%3A%2F%2Fwww.olx.pl%2F&ref[0][action]=redirector&ref[0][method]=index')
 
         self.page.ele('xpath://*[@id="username"]').input(email)
         self.page.ele('xpath://*[@id="password"]').input(password)
